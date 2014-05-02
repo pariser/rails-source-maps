@@ -12,9 +12,9 @@
     "url": "https://github.com/golearnup/rails-source-maps.git"
   },
   "dependencies": {
-    'commander': '2.2.0',
-    'uglify-js': '2.4.13',
-    'underscore': '1.6.0'
+    "commander": "2.2.0",
+    "uglify-js": "2.4.13",
+    "underscore": "1.6.0"
   },
   "bin": {
     "rails-source-maps": "./bin/rails-source-maps"
