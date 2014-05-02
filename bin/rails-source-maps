@@ -6,21 +6,60 @@
   var _ = require('underscore');
   var uglify = require('uglify-js');
   var fs = require('fs');
+  var async = require('async');
 
   program
     .version('0.0.1')
     .usage('[options] <file ...>')
     .parse(process.argv);
 
-  _.each(program.args, function(file) {
+  _.each(program.args, function(fileName) {
 
-    var result = uglify.minify(file, {
-      outSourceMap: file + '.map'
+    var baseFileName = fileName.replace(/\.js$/, '');
+
+    var originalFileName = baseFileName + '.orig.js';
+    var minifiedFileName = baseFileName + '.js';
+    var sourceMapFileName = baseFileName + '.js.map';
+
+    async.waterfall([
+      function(cb) {
+        fs.exists(originalFileName, function(exists) {
+          if (exists) {
+            return cb('already processed');
+          }
+
+          cb();
+        });
+      },
+      function(cb) {
+        fs.rename(fileName, originalFileName, cb);
+      },
+      function(cb) {
+        var uglified = uglify.minify(originalFileName, {
+          outSourceMap: sourceMapFileName
+        });
+        cb(null, uglified);
+      },
+      function(uglified, cb) {
+        if (!uglified.code.match(/^\/\/# sourceMappingURL=/)) {
+          uglified.code += "\n";
+          uglified.code += "//# sourceMappingURL=" + sourceMapFileName;
+        }
+
+        fs.writeFile(minifiedFileName, uglified.code, function(err) {
+          cb(err, uglified);
+        });
+      },
+      function(uglified, cb) {
+        fs.writeFile(sourceMapFileName, uglified.map, function(err) {
+          cb(err, uglified);
+        });
+      }
+    ], function(err) {
+      if (err) {
+        console.error("Error processing file " + fileName + ": " + err.toString());
+      }
     });
-
-    fs.writeFile(file + '.min', result.code);
-    fs.writeFile(file + '.map', result.map);
-
   });
 
 }());
