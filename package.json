@@ -1,0 +1,22 @@
+{
+  "name": "rails-source-maps",
+  "version": "0.0.1",
+  "author": "Andrew Pariser <pariser@learnup.com>",
+  "description": "A utility to create source maps as part of the Rails asset pipeline.",
+
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/golearnup/rails-source-maps.git"
+  },
+  "dependencies": {
+    'commander': '2.2.0',
+    'uglify-js': '2.4.13',
+    'underscore': '1.6.0'
+  },
+  "bin": {
+    "rails-source-maps": "./bin/rails-source-maps"
+  }
+}

@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+
+(function() {
+
+  var program = require('commander');
+  var _ = require('underscore');
+  var uglify = require('uglify-js');
+  var fs = require('fs');
+
+  program
+    .version('0.0.1')
+    .usage('[options] <file ...>')
+    .parse(process.argv);
+
+  _.each(program.args, function(file) {
+
+    var result = uglify.minify(file, {
+      outSourceMap: file + '.map'
+    });
+
+    fs.writeFile(file + '.min', result.code);
+    fs.writeFile(file + '.map', result.map);
+
+  });
+
+}());

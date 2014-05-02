@@ -1,0 +1,1 @@
+var Example=function(){"use strict";var e={};return e.VARIABLE=["foo","bar","baz"],e.fn=function(e,n){"undefined"==typeof n&&(n=e,e=null),e||(e="[defaultArgument]"),console.log("Got argument: "+e),n&&n()},e}();console.log("Example started."),Example.fn(Example.VARIABLE,function(){console.log("Example finished.")});
