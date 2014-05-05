@@ -2,63 +2,181 @@
 
 (function() {
 
-  var program = require('commander');
-  var _ = require('underscore');
-  var uglify = require('uglify-js');
+  var ALREADY_PROCESSED = 'already processed';
+
   var fs = require('fs');
+  var zlib = require('zlib');
+
+  var _ = require('underscore');
   var async = require('async');
+  var program = require('commander');
+  var uglify = require('uglify-js');
 
   program
     .version('0.0.1')
-    .usage('[options] <file ...>')
+    .option('-t, --threads [threads]', 'number of concurrent threads (default: 3)')
+    .option('-Z, --no-gzip', 'do not gzip files')
+    .usage('/path/to/rails/root')
     .parse(process.argv);
 
-  _.each(program.args, function(fileName) {
+  var threads = program.threads || 3;
+  var gzip = program.gzip;
 
-    var baseFileName = fileName.replace(/\.js$/, '');
+  /* ****************************************************************
+     Process each javascript file using this queue
+     **************************************************************** */
 
-    var originalFileName = baseFileName + '.orig.js';
-    var minifiedFileName = baseFileName + '.js';
-    var sourceMapFileName = baseFileName + '.js.map';
+  var queue = async.queue(function(jsfile, cb) {
+    var copied = jsfile.replace(/\.js$/, '.orig.js');
+    var sourcemap = jsfile.replace(/\.js$/, '.js.map')
+    var gzipped = jsfile.replace(/\.js$/, '.js.gz')
 
     async.waterfall([
       function(cb) {
-        fs.exists(originalFileName, function(exists) {
+        console.log('processing file: ' + jsfile);
+        cb();
+      },
+      function(cb) {
+        fs.exists(copied, function(exists) {
           if (exists) {
-            return cb('already processed');
+            return cb(ALREADY_PROCESSED);
           }
 
           cb();
         });
       },
       function(cb) {
-        fs.rename(fileName, originalFileName, cb);
+        fs.rename(jsfile, copied, cb);
       },
       function(cb) {
-        var uglified = uglify.minify(originalFileName, {
-          outSourceMap: sourceMapFileName
+        var uglified = uglify.minify(copied, {
+          outSourceMap: sourcemap
         });
         cb(null, uglified);
       },
       function(uglified, cb) {
-        if (!uglified.code.match(/^\/\/# sourceMappingURL=/)) {
-          uglified.code += "\n";
-          uglified.code += "//# sourceMappingURL=" + sourceMapFileName;
+
+        uglified.code += "\n";
+        uglified.code += "//# sourceMappingURL=" + sourcemap;
+
+        var flags = {
+          code: false,
+          map: false,
+          cb: false
+        };
+
+        var finished = function(which) {
+          return function(err) {
+            if (err) {
+              flags.cb = true;
+              return cb(err);
+            }
+            flags[which] = true;
+            if (flags.code && flags.map && !flags.cb) {
+              flags.cb = true;
+              cb();
+            }
+          };
+        };
+
+        fs.writeFile(jsfile, uglified.code, finished('code'));
+        fs.writeFile(sourcemap, uglified.map, finished('map'));
+      },
+      function(cb) {
+        if (!gzip) {
+          return cb();
         }
 
-        fs.writeFile(minifiedFileName, uglified.code, function(err) {
-          cb(err, uglified);
-        });
-      },
-      function(uglified, cb) {
-        fs.writeFile(sourceMapFileName, uglified.map, function(err) {
-          cb(err, uglified);
-        });
+        fs.createReadStream(jsfile).
+          pipe(zlib.createGzip()).
+          pipe(fs.createWriteStream(gzipped)).
+          on('finish', cb);
       }
     ], function(err) {
       if (err) {
-        console.error("Error processing file " + fileName + ": " + err.toString());
+        if (err !== ALREADY_PROCESSED) {
+          console.error("Error processing file " + jsfile + ": " + err.toString());
+        }
       }
+
+      cb();
+    });
+  }, threads);
+
+  queue.drain = function() {
+    console.log('all files have been processed');
+  };
+
+  /* ****************************************************************
+     Get all files within a given directory. Return list in the cb.
+     **************************************************************** */
+
+  var findNestedFiles = function(dir, cb) {
+    var files = [];
+
+    fs.readdir(dir, function(err, list) {
+      if (err) {
+        return cb(err);
+      }
+
+      var pending = list.length;
+      if (pending === 0) {
+        return cb(null, files);
+      }
+
+      _.each(list, function(file) {
+        file = dir + '/' + file;
+
+        fs.stat(file, function(err, stat) {
+          if (stat && stat.isDirectory()) {
+            // Recurse one level deeper
+            findNestedFiles(file, function(err, f) {
+              pending = pending - 1;
+              files = files.concat(f);
+
+              if (pending === 0) {
+                cb(null, files);
+              }
+            });
+            return;
+          }
+
+          pending = pending - 1;
+          files.push(file);
+
+          if (pending === 0) {
+            cb(null, files);
+          }
+        });
+      });
+    });
+  };
+
+  if (program.args.length < 1 || !_.isString(program.args[0])) {
+    return program.help();
+  }
+
+  var assetsPath = program.args[0].replace(/\/$/, '') + '/public/assets';
+  fs.stat(assetsPath, function(err, stat) {
+    if (err) {
+      console.error('Error reading input directory ' + assetsPath + ': ' + err.toString() + "\n\n");
+      return program.help();
+    }
+    if (!stat.isDirectory()) {
+      console.error('Input is not a directory: ' + assetsPath + "\n\n");
+      return program.help();
+    }
+
+    findNestedFiles(assetsPath, function(err, files) {
+      if (err) {
+        return console.error("Encountered error walking directory tree: " + err.toString());
+      }
+
+      _.each(files, function(file) {
+        if (file.match(/\.js$/) && !file.match(/\.orig\.js$/)) {
+          queue.push(file);
+        }
+      });
     });
   });
 
