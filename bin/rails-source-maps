@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 (function() {
+  "use strict";
 
   var ALREADY_PROCESSED = 'already processed';
 
@@ -28,20 +29,25 @@
 
   var queue = async.queue(function(jsfile, cb) {
     var copied = jsfile.replace(/\.js$/, '.orig.js');
-    var sourcemap = jsfile.replace(/\.js$/, '.js.map')
-    var gzipped = jsfile.replace(/\.js$/, '.js.gz')
+    var sourcemap = jsfile.replace(/\.js$/, '.js.map');
+    var gzipped = jsfile.replace(/\.js$/, '.js.gz');
+
+    var sourcemaptext = "\n//# sourceMappingURL=" + sourcemap;
 
     async.waterfall([
       function(cb) {
-        console.log('processing file: ' + jsfile);
-        cb();
-      },
-      function(cb) {
-        fs.exists(copied, function(exists) {
-          if (exists) {
+        fs.readFile(jsfile, { encoding: 'utf8' }, function(err, contents) {
+          if (err) {
+            return cb(err);
+          }
+
+          // Check if this file already lists a source map. If so, skip it.
+          if (contents.slice(-1 * sourcemaptext.length) === sourcemaptext) {
+            console.log("Skipping file which already has a source map: " + jsfile);
             return cb(ALREADY_PROCESSED);
           }
 
+          console.log("Generating source map for file: " + jsfile);
           cb();
         });
       },
@@ -56,8 +62,7 @@
       },
       function(uglified, cb) {
 
-        uglified.code += "\n";
-        uglified.code += "//# sourceMappingURL=" + sourcemap;
+        uglified.code += sourcemaptext;
 
         var flags = {
           code: false,
@@ -159,7 +164,7 @@
   var assetsPath = program.args[0].replace(/\/$/, '') + '/public/assets';
   fs.stat(assetsPath, function(err, stat) {
     if (err) {
-      console.error('Error reading input directory ' + assetsPath + ': ' + err.toString() + "\n\n");
+      console.error('Error reading input directory ' + assetsPath + ': ' + err.toString());
       return program.help();
     }
     if (!stat.isDirectory()) {
