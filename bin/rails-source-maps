@@ -28,11 +28,13 @@
      **************************************************************** */
 
   var queue = async.queue(function(jsfile, cb) {
-    var copied = jsfile.replace(/\.js$/, '.orig.js');
+
+    var original = jsfile.replace(/\.js$/, '.orig.js');
     var sourcemap = jsfile.replace(/\.js$/, '.js.map');
     var gzipped = jsfile.replace(/\.js$/, '.js.gz');
 
-    var sourcemaptext = "\n//# sourceMappingURL=" + sourcemap;
+    var sourceMapUrl = sourcemap.replace(/^((\.\/)?public\/)?/, '/');
+    var sourceMapText = "\n//# sourceMappingURL=" + sourceMapUrl;
 
     async.waterfall([
       function(cb) {
@@ -42,7 +44,7 @@
           }
 
           // Check if this file already lists a source map. If so, skip it.
-          if (contents.slice(-1 * sourcemaptext.length) === sourcemaptext) {
+          if (contents.slice(-1 * sourceMapText.length) === sourceMapText) {
             console.log("Skipping file which already has a source map: " + jsfile);
             return cb(ALREADY_PROCESSED);
           }
@@ -52,17 +54,21 @@
         });
       },
       function(cb) {
-        fs.rename(jsfile, copied, cb);
+        fs.rename(jsfile, original, cb);
       },
       function(cb) {
-        var uglified = uglify.minify(copied, {
-          outSourceMap: sourcemap
+        var uglified = uglify.minify(original, {
+          outSourceMap: sourceMapUrl
         });
         cb(null, uglified);
       },
       function(uglified, cb) {
 
-        uglified.code += sourcemaptext;
+        // Replace ./public/assets/ prefix with /assets/
+        uglified.code = uglified.code.replace(/\.?\/?public\/assets\//g, '/assets/');
+        uglified.map = uglified.map.replace(/\.?\/?public\/assets\//g, '/assets/');
+
+        uglified.code += sourceMapText;
 
         var flags = {
           code: false,
