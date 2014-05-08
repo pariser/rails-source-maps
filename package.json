@@ -3,7 +3,16 @@
   "version": "0.0.2",
   "author": "Andrew Pariser <pariser@learnup.com>",
   "description": "A utility to create source maps as part of the Rails asset pipeline.",
-
+  "contributors": [
+    {
+      "name": "Andrew Pariser",
+      "email": "pariser@learnup.com"
+    },
+    {
+      "name": "Scott Taylor",
+      "email": "scott@railsnewbie.com"
+    }
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
