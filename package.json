@@ -25,7 +25,7 @@
     "uglify-js": "2.4.13",
     "underscore": "1.6.0",
     "async": "0.8.0",
-    "glob": "*"
+    "glob": "3.2.11"
   },
   "bin": {
     "rails-source-maps": "./bin/rails-source-maps"
