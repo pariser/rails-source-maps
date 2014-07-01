@@ -1,6 +1,6 @@
 {
   "name": "rails-source-maps",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Andrew Pariser <pariser@learnup.com>",
   "description": "A utility to create source maps as part of the Rails asset pipeline.",
   "contributors": [
