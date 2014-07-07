@@ -32,5 +32,6 @@ var Example = (function() {
 
 console.log('Example started.');
 Example.fn(Example.VARIABLE, function() {
+  "use strict";
   console.log('Example finished.');
 });
