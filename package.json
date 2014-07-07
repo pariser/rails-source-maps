@@ -27,6 +27,10 @@
     "async": "0.8.0",
     "glob": "3.2.11"
   },
+  "devDependencies": {
+    "jake": "0.5.8",
+    "jshint": "0.5.5"
+  },
   "bin": {
     "rails-source-maps": "./bin/rails-source-maps"
   }
